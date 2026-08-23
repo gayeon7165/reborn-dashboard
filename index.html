@@ -143,6 +143,8 @@
     </div>
 
     <script>
+        // ⭐ Ngrok 주소
+        const NGROK_URL = "https://humbly-snowstorm-energize.ngrok-free.dev";
         /* ==========================================
            1. API 및 기본 세팅
            ========================================== */
@@ -225,6 +227,21 @@
             options: { maintainAspectRatio: false, animation: false, scales: { y: { suggestedMin: 30, suggestedMax: 70 } } }
         });
 
+
+        // 📡 [관리자용] 블루투스 데이터를 서버로 전송 (POST)
+async function sendDataToServer(temp, humi) {
+    try {
+        await fetch(NGROK_URL + "/api/data", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ temp: temp, humi: humi })
+        });
+        console.log("서버 전송 성공!");
+    } catch (error) {
+        console.error("서버 전송 실패:", error);
+    }
+}
+        
         /* ==========================================
            5. 블루투스 연결 (기존 유지)
            ========================================== */
@@ -288,6 +305,33 @@
             humiChart.data.datasets[0].data.push(currentHumi);
             if(humiChart.data.labels.length > 15) { humiChart.data.labels.shift(); humiChart.data.datasets[0].data.shift(); }
             humiChart.update();
+            
+            // 화면 업데이트 시 전송 함수 실행하기
+            if (currentTemp !== "--" && currentHumi !== "--") {
+        sendDataToServer(currentTemp, currentHumi);
+    }
+            
+            // 📱 [일반 사용자용] 서버에서 최신 데이터 가져오기 (GET)
+async function fetchLatestData() {
+    try {
+        const response = await fetch(NGROK_URL + "/api/latest_data");
+        const data = await response.json();
+        
+        if (data.status === "success") {
+            currentTemp = data.temp;
+            currentHumi = data.humi;
+            
+            // 블루투스 연결 없이도 화면 업데이트!
+            updateDashboard(); 
+            document.getElementById('statusText').innerText = "🌐 원격 서버와 연결됨";
+        }
+    } catch (error) {
+        console.error("데이터 불러오기 실패:", error);
+    }
+}
+
+// 💡 팁: 일반 사용자는 웹에 들어오자마자 데이터를 봐야 하니 5초마다 계속 서버를 확인하도록 설정
+// setInterval(fetchLatestData, 5000); // <-- 이 줄의 주석(//)을 풀면 즉시 원격 모드로 작동
         }
     </script>
 </body>
