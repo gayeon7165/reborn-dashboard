@@ -281,30 +281,55 @@ async function sendDataToServer(temp, humi) {
 
         // 화면 및 2개의 그래프 업데이트 함수
         function updateDashboard() {
-            // 1. 메인 화면 큰 숫자 업데이트
+           // 10분 측정을 위한 타이머 변수
+        let lastRecordedTime = 0; 
+        const TEN_MINUTES_MS = 10 * 60 * 1000; // 10분을 밀리초로 변환 (600,000ms)
+
+        // 블루투스로 데이터가 들어올 때마다 화면의 '큰 숫자'는 계속 바뀝니다.
+        // 하지만 '그래프'와 '서버 전송'은 10분에 한 번만 실행됩니다!
+        function updateDashboard() {
+            // 1. 화면의 큰 숫자 업데이트 (이건 실시간으로 바로바로 바뀜)
             document.getElementById('tempVal').innerText = currentTemp;
             document.getElementById('humiVal').innerText = currentHumi;
             
-            // 2. 조언 실행
+            // 조언 실행
             if (currentTemp !== "--" && outTemp !== 0) {
                 generateAdvice(parseFloat(currentTemp));
             }
 
-            // 3. 분리된 두 개의 그래프 업데이트
-            const now = new Date();
-            const timeStr = `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
+            // 2. ⭐ 10분에 한 번씩만 그래프에 점을 찍고 서버로 전송!
+            const nowTime = Date.now();
             
-            // 온도 그래프에 데이터 넣기
-            tempChart.data.labels.push(timeStr);
-            tempChart.data.datasets[0].data.push(currentTemp);
-            if(tempChart.data.labels.length > 15) { tempChart.data.labels.shift(); tempChart.data.datasets[0].data.shift(); }
-            tempChart.update();
+            // 프로그램이 처음 켜졌거나, 마지막 기록 후 10분이 지났다면 실행
+            if (lastRecordedTime === 0 || (nowTime - lastRecordedTime) >= TEN_MINUTES_MS) {
+                lastRecordedTime = nowTime; // 마지막 기록 시간 업데이트
+                
+                const now = new Date();
+                const timeStr = `${now.getHours()}시 ${now.getMinutes()}분`; // 14:20 형태로 표시
+                
+                // 서버로 데이터 쏘기
+                sendDataToServer(currentTemp, currentHumi);
 
-            // 습도 그래프에 데이터 넣기
-            humiChart.data.labels.push(timeStr);
-            humiChart.data.datasets[0].data.push(currentHumi);
-            if(humiChart.data.labels.length > 15) { humiChart.data.labels.shift(); humiChart.data.datasets[0].data.shift(); }
-            humiChart.update();
+                // 온도 그래프 그리기
+                tempChart.data.labels.push(timeStr);
+                tempChart.data.datasets[0].data.push(currentTemp);
+                // 144개(24시간)가 넘어가면 가장 오래된 데이터를 지워서 밀어내기
+                if(tempChart.data.labels.length > 144) { 
+                    tempChart.data.labels.shift(); 
+                    tempChart.data.datasets[0].data.shift(); 
+                }
+                tempChart.update();
+
+                // 습도 그래프 그리기
+                humiChart.data.labels.push(timeStr);
+                humiChart.data.datasets[0].data.push(currentHumi);
+                if(humiChart.data.labels.length > 144) { 
+                    humiChart.data.labels.shift(); 
+                    humiChart.data.datasets[0].data.shift(); 
+                }
+                humiChart.update();
+            }
+        }
             
             // 화면 업데이트 시 전송 함수 실행하기
             if (currentTemp !== "--" && currentHumi !== "--") {
