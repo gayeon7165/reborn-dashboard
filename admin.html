@@ -203,51 +203,89 @@
         /* ==========================================
            2. 날씨 및 공기질 가져오기
            ========================================== */
+        // (기존 변수 아래에 풍속, 날씨상태 변수 추가)
+        let outWind = 0; 
+        let weatherMain = "Clear"; // 비, 눈 등을 판별할 변수
+
         async function getWeather() {
             try {
-                // 날씨
                 const wRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric&lang=kr`);
                 const wData = await wRes.json();
+                
                 outTemp = wData.main.temp;
+                outWind = wData.wind.speed; // 🌪️ 풍속 데이터 추가
+                weatherMain = wData.weather[0].main; // 🌧️ 비/눈 상태 추가
                 const weatherDesc = wData.weather[0].description;
                 
-                // 공기질
                 const aRes = await fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${API_KEY}`);
                 const aData = await aRes.json();
                 outAqi = aData.list[0].main.aqi; 
                 let aqiText = ["", "🟢 좋음", "🟡 보통", "🟠 나쁨(민감)", "🔴 나쁨", "⚫ 매우 나쁨"][outAqi] || "알 수 없음";
 
-                document.getElementById('weatherData').innerHTML = "📍" + locName + " 외부: " + outTemp + "°C | " + weatherDesc + " | 대기질: " + aqiText;
+                document.getElementById('weatherData').innerHTML = "📍" + locName + " 외부: " + outTemp + "°C | " + weatherDesc + " | 풍속: " + outWind + "m/s | 대기질: " + aqiText;
             } catch (e) {
                 document.getElementById('weatherData').innerHTML = "날씨 정보를 불러오지 못했습니다.";
             }
         }
         getWeather();
 
-        /* ==========================================
-           3. 조언(Advice) 알고리즘
-           ========================================== */
-        function generateAdvice(inTemp) {
+        // 🧠 엑셀 피드백이 완벽 적용된 조언 알고리즘!
+        function generateAdvice(inTemp, inHumi) {
             const adviceBox = document.getElementById('adviceBox');
-            
-            // 미세먼지가 나쁠 때 (AQI 4 이상)
-            if (outAqi >= 4) {
-                adviceBox.innerHTML = "🚨 외부 미세먼지가 나쁩니다.<br>창문을 닫고 공기청정기를 가동하세요!";
+            const temp = parseFloat(inTemp);
+            const humi = parseFloat(inHumi);
+
+            // 1. 24절기 기준 계절 판별 (오늘 날짜 기준)
+            const today = new Date();
+            const m = today.getMonth() + 1;
+            const d = today.getDate();
+            const md = m * 100 + d; // 예: 5월 5일 -> 505
+
+            let season = "";
+            if (md >= 204 && md <= 504) season = "봄";
+            else if (md >= 505 && md <= 806) season = "여름";
+            else if (md >= 807 && md <= 1106) season = "가을";
+            else season = "겨울";
+
+            // 2. 계절별 실내 온도 상태 판별
+            let tempState = "";
+            let actionText = "";
+
+            if (season === "여름") {
+                if (temp >= 27) { tempState = "더움"; actionText = "에어컨을 24~26℃로 작동시키세요."; }
+                else if (temp >= 24) { tempState = "적정"; actionText = "에어컨보다는 선풍기를 틀어 현재 온도를 유지하세요."; }
+                else { tempState = "쌀쌀함"; actionText = "에어컨이 작동 중이라면 잠시 꺼두셔도 좋습니다."; }
+            } else if (season === "겨울") {
+                if (temp >= 21) { tempState = "더움"; actionText = "난방을 줄여 실내 온도를 18~20℃로 조절하세요."; }
+                else if (temp >= 18) { tempState = "적정"; actionText = "현재 온도를 유지하세요."; }
+                else { tempState = "쌀쌀함"; actionText = "난방을 20~22℃로 작동시키세요."; }
+            } else { // 봄/가을
+                if (temp >= 21) { tempState = "더움"; actionText = "에어컨보다는 선풍기를 틀어 쾌적한 온도를 만드세요."; }
+                else if (temp >= 16) { tempState = "적정"; actionText = "냉난방 없이 실내 온도를 16~20℃로 유지하세요."; }
+                else { tempState = "쌀쌀함"; actionText = "한기가 느껴진다면 담요를 활용하고 필요시 난방을 사용하세요."; }
             }
-            // 실내가 덥고, 밖이 시원하며, 미세먼지가 좋을 때
-            else if (inTemp >= 26 && inTemp > outTemp && outAqi <= 2) {
-                adviceBox.innerHTML = "💡 바깥 공기가 더 시원하고 깨끗합니다.<br>에어컨을 끄고 환기하세요!";
+
+            // 3. 외부 악천후 우선순위 판별 (우선순위: 폭우/눈 -> 미세먼지 -> 강풍 -> 가벼운비 -> 습도)
+            let adviceHTML = "";
+
+            if (weatherMain === "Thunderstorm" || weatherMain === "Extreme" || weatherMain === "Heavy Rain") {
+                adviceHTML = `🚨 현재 강한 비 또는 눈이 내리고 있으니 창문을 닫고,<br>${actionText}`;
+            } else if (outAqi >= 4) { // 대기질 나쁨 이상
+                adviceHTML = `😷 현재 외부 공기질이 ‘나쁨’ 수준이므로 창문을 닫고 공기청정기를 작동해 주세요.<br>${actionText}`;
+            } else if (outWind > 6.5) { // 풍속 6.5 초과
+                adviceHTML = `🌪️ 현재 강풍이 불고 있으니 안전을 위해 창문을 꼭 닫고,<br>${actionText}`;
+            } else if (weatherMain === "Rain" || weatherMain === "Drizzle" || weatherMain === "Snow") {
+                adviceHTML = `🌧️ 가벼운 비 또는 눈이 내리고 있으니 창문을 닫아두실 것을 권장합니다.<br>${actionText}`;
+            } else if (humi > 60) {
+                adviceHTML = `💧 실내 습도가 높으니 창문을 닫고 제습기를 가동하세요.<br>${actionText}`;
+            } else if (humi < 40) {
+                adviceHTML = `🌵 실내가 건조하니 창문을 닫고 가습기를 가동해 주세요.<br>${actionText}`;
+            } else {
+                // 악천후가 없는 무난한 날씨일 때 (환기 권장)
+                adviceHTML = `☀️ 쾌적한 날씨입니다! 짧게 환기한 후 창문을 닫고,<br>${actionText}`;
             }
-            // 실내외 모두 더울 때
-            else if (inTemp >= 26 && outTemp >= 26) {
-                adviceBox.innerHTML = "💡 실내외 모두 덥습니다.<br>에어컨 희망온도를 26°C로 설정하세요.";
-            }
-            else if (inTemp <= 22) {
-                adviceBox.innerHTML = "💡 실내가 춥습니다. 에너지가 낭비되고 있습니다!<br>냉방을 멈춰주세요.";
-            }
-            else {
-                adviceBox.innerHTML = "👍 아주 쾌적하고 에너지 효율적인 환경입니다!";
-            }
+
+            adviceBox.innerHTML = adviceHTML;
         }
 
         /* ==========================================
