@@ -296,7 +296,8 @@ async function sendDataToServer(temp, humi) {
         document.getElementById('connectBtn').addEventListener('click', async () => {
             try {
                 const device = await navigator.bluetooth.requestDevice({
-                    filters: [{ name: 'Nano33_Weather' }], optionalServices: [SERVICE_UUID]
+                    acceptAllDevices: true, // 이름 필터를 없애고 주변의 모든 기기를 다 보여줌!
+                    optionalServices: [SERVICE_UUID]
                 });
                 const server = await device.gatt.connect();
                 const service = await server.getPrimaryService(SERVICE_UUID);
