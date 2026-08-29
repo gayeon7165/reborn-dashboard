@@ -371,19 +371,25 @@ async function sendDataToServer(temp, humi) {
             }
         } // updateDashboard 함수 끝!
             
-        // 📱 [일반 사용자용] 서버에서 최신 데이터 가져오기 (GET)
+        // [일반 사용자용] 서버에서 최신 데이터 가져오기 (GET)
         async function fetchLatestData() {
             try {
-                const response = await fetch(NGROK_URL + "/api/latest_data");
+                const response = await fetch(NGROK_URL + "/api/latest_data", {
+                    method: "GET",
+                    headers: {
+                        "ngrok-skip-browser-warning": "69420", // 🌟 Ngrok 보안 경고창 강제 무시!
+                        "Content-Type": "application/json"
+                    }
+                });
+                
                 const data = await response.json();
                 
                 if (data.status === "success") {
                     currentTemp = data.temp;
                     currentHumi = data.humi;
                     
-                    // 블루투스 연결 없이도 화면 업데이트!
+                    // 블루투스 연결 없이도 화면의 숫자와 조언을 바로 업데이트!
                     updateDashboard(); 
-                    document.getElementById('statusText').innerText = "🌐 원격 서버와 연결됨";
                 }
             } catch (error) {
                 console.error("데이터 불러오기 실패:", error);
