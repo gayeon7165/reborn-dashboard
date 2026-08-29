@@ -322,16 +322,13 @@ async function sendDataToServer(temp, humi) {
             } catch (error) { alert("블루투스 연결 실패!"); }
         });
 
-        // 화면 및 2개의 그래프 업데이트 함수
-        function updateDashboard() {
-           // 10분 측정을 위한 타이머 변수
+        // 10분 측정을 위한 타이머 변수
         let lastRecordedTime = 0; 
         const TEN_MINUTES_MS = 10 * 60 * 1000; // 10분을 밀리초로 변환 (600,000ms)
 
-        // 블루투스로 데이터가 들어올 때마다 화면의 '큰 숫자'는 계속 바뀝니다.
-        // 하지만 '그래프'와 '서버 전송'은 10분에 한 번만 실행됩니다!
+        // 화면 및 2개의 그래프 업데이트 함수
         function updateDashboard() {
-            // 1. 화면의 큰 숫자 업데이트 (이건 실시간으로 바로바로 바뀜)
+            // 1. 화면의 큰 숫자 업데이트 (실시간 변경)
             document.getElementById('tempVal').innerText = currentTemp;
             document.getElementById('humiVal').innerText = currentHumi;
             
@@ -348,15 +345,16 @@ async function sendDataToServer(temp, humi) {
                 lastRecordedTime = nowTime; // 마지막 기록 시간 업데이트
                 
                 const now = new Date();
-                const timeStr = `${now.getHours()}시 ${now.getMinutes()}분`; // 14:20 형태로 표시
+                const timeStr = `${now.getHours()}시 ${now.getMinutes()}분`;
                 
                 // 서버로 데이터 쏘기
-                sendDataToServer(currentTemp, currentHumi);
+                if (currentTemp !== "--" && currentHumi !== "--") {
+                    sendDataToServer(currentTemp, currentHumi);
+                }
 
                 // 온도 그래프 그리기
                 tempChart.data.labels.push(timeStr);
                 tempChart.data.datasets[0].data.push(currentTemp);
-                // 144개(24시간)가 넘어가면 가장 오래된 데이터를 지워서 밀어내기
                 if(tempChart.data.labels.length > 144) { 
                     tempChart.data.labels.shift(); 
                     tempChart.data.datasets[0].data.shift(); 
@@ -372,35 +370,28 @@ async function sendDataToServer(temp, humi) {
                 }
                 humiChart.update();
             }
+        } // updateDashboard 함수 끝!
+            
+        // 📱 [일반 사용자용] 서버에서 최신 데이터 가져오기 (GET)
+        async function fetchLatestData() {
+            try {
+                const response = await fetch(NGROK_URL + "/api/latest_data");
+                const data = await response.json();
+                
+                if (data.status === "success") {
+                    currentTemp = data.temp;
+                    currentHumi = data.humi;
+                    
+                    // 블루투스 연결 없이도 화면 업데이트!
+                    updateDashboard(); 
+                    document.getElementById('statusText').innerText = "🌐 원격 서버와 연결됨";
+                }
+            } catch (error) {
+                console.error("데이터 불러오기 실패:", error);
+            }
         }
-            
-            // 화면 업데이트 시 전송 함수 실행하기
-            if (currentTemp !== "--" && currentHumi !== "--") {
-        sendDataToServer(currentTemp, currentHumi);
-    }
-            
-            // 📱 [일반 사용자용] 서버에서 최신 데이터 가져오기 (GET)
-async function fetchLatestData() {
-    try {
-        const response = await fetch(NGROK_URL + "/api/latest_data");
-        const data = await response.json();
-        
-        if (data.status === "success") {
-            currentTemp = data.temp;
-            currentHumi = data.humi;
-            
-            // 블루투스 연결 없이도 화면 업데이트!
-            updateDashboard(); 
-            document.getElementById('statusText').innerText = "🌐 원격 서버와 연결됨";
-        }
-    } catch (error) {
-        console.error("데이터 불러오기 실패:", error);
-    }
-}
 
-// 💡 팁: 일반 사용자는 웹에 들어오자마자 데이터를 봐야 하니 5초마다 계속 서버를 확인하도록 설정
-// setInterval(fetchLatestData, 5000); // <-- 이 줄의 주석(//)을 풀면 즉시 원격 모드로 작동
-        }
+        // setInterval(fetchLatestData, 5000); // 원격 모드 작동 시 주석 해제
     </script>
 </body>
 </html>
