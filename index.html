@@ -377,7 +377,7 @@ async function sendDataToServer(temp, humi) {
                 const response = await fetch(NGROK_URL + "/api/latest_data", {
                     method: "GET",
                     headers: {
-                        "ngrok-skip-browser-warning": "69420", // 🌟 Ngrok 보안 경고창 강제 무시!
+                        "ngrok-skip-browser-warning": "69420",
                         "Content-Type": "application/json"
                     }
                 });
@@ -385,14 +385,15 @@ async function sendDataToServer(temp, humi) {
                 const data = await response.json();
                 
                 if (data.status === "success") {
-                    currentTemp = data.temp;
-                    currentHumi = data.humi;
+                    // 복잡한 함수 거치지 않고, 화면의 온도/습도 글씨만 즉시 교체!
+                    document.getElementById('tempVal').innerText = data.temp;
+                    document.getElementById('humiVal').innerText = data.humi;
                     
-                    // 블루투스 연결 없이도 화면의 숫자와 조언을 바로 업데이트!
-                    updateDashboard(); 
+                    // 연결 안내 문구도 원격 수신 상태로 변경
+                    document.querySelector('.connect-btn').innerText = "🌐 실시간 원격 데이터 수신 중";
                 }
             } catch (error) {
-                console.error("데이터 불러오기 실패:", error);
+                console.log("데이터 수신 대기 중...");
             }
         }
         
