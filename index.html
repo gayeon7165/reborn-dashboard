@@ -162,55 +162,40 @@
     </div>
 
     <script>
-        // ⭐ Ngrok 주소
+       // ⭐ Ngrok 주소
         const NGROK_URL = "https://humbly-snowstorm-energize.ngrok-free.dev";
-        /* ==========================================
-           1. API 및 기본 세팅
-           ========================================== */
-        // ⭐ OpenWeatherMap API 키
-        const API_KEY = "8f473ed478c67abe7a3dec096bbe4153";
         
-        // 🎯 1. 기관별 위도/경도 데이터 보관함 만들기
+        // ⭐ OpenWeatherMap API 키 및 지역 세팅
+        const API_KEY = "8f473ed478c67abe7a3dec096bbe4153";
         const locations = {
             shinwol: { lat: 37.5165, lon: 126.8367, name: "신월동" },
             deungchon: { lat: 37.5640, lon: 126.8424, name: "등촌동" }
         };
 
-        // 🎯 2. 현재 선택된 기관 설정 (초기값: 등촌동)
         let currentLoc = "deungchon";
         let lat = locations[currentLoc].lat;
         let lon = locations[currentLoc].lon;
         let locName = locations[currentLoc].name;
-
-        // (기존 변수들 유지)
         let outTemp = 0; 
         let outAqi = 0;  
 
-        // 🎯 3. 드롭다운을 바꿀 때마다 실행될 이벤트 추가
+        // 드롭다운 변경 이벤트
         document.getElementById('locationSelect').addEventListener('change', (e) => {
-            currentLoc = e.target.value; // 선택한 값(shinwol 또는 deungchon) 가져오기
-            
-            // 좌표와 동네 이름 업데이트
+            currentLoc = e.target.value;
             lat = locations[currentLoc].lat;
             lon = locations[currentLoc].lon;
             locName = locations[currentLoc].name;
-            
-            // 좌표가 바뀌었으니 날씨 다시 불러오기!
             getWeather(); 
         });
 
-        /* ==========================================
-           2. 날씨 및 공기질 가져오기
-           ========================================== */
+        // 날씨 가져오기 함수
         async function getWeather() {
             try {
-                // 날씨
                 const wRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric&lang=kr`);
                 const wData = await wRes.json();
                 outTemp = wData.main.temp;
                 const weatherDesc = wData.weather[0].description;
                 
-                // 공기질
                 const aRes = await fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${API_KEY}`);
                 const aData = await aRes.json();
                 outAqi = aData.list[0].main.aqi; 
@@ -223,36 +208,23 @@
         }
         getWeather();
 
-        /* ==========================================
-           3. 조언(Advice) 알고리즘
-           ========================================== */
+        // 조언(Advice) 알고리즘
         function generateAdvice(inTemp) {
             const adviceBox = document.getElementById('adviceBox');
-            
-            // 미세먼지가 나쁠 때 (AQI 4 이상)
             if (outAqi >= 4) {
                 adviceBox.innerHTML = "🚨 외부 미세먼지가 나쁩니다.<br>창문을 닫고 공기청정기를 가동하세요!";
-            }
-            // 실내가 덥고, 밖이 시원하며, 미세먼지가 좋을 때
-            else if (inTemp >= 26 && inTemp > outTemp && outAqi <= 2) {
+            } else if (inTemp >= 26 && inTemp > outTemp && outAqi <= 2) {
                 adviceBox.innerHTML = "💡 바깥 공기가 더 시원하고 깨끗합니다.<br>에어컨을 끄고 환기하세요!";
-            }
-            // 실내외 모두 더울 때
-            else if (inTemp >= 26 && outTemp >= 26) {
+            } else if (inTemp >= 26 && outTemp >= 26) {
                 adviceBox.innerHTML = "💡 실내외 모두 덥습니다.<br>에어컨 희망온도를 26°C로 설정하세요.";
-            }
-            else if (inTemp <= 22) {
+            } else if (inTemp <= 22) {
                 adviceBox.innerHTML = "💡 실내가 춥습니다. 에너지가 낭비되고 있습니다!<br>냉방을 멈춰주세요.";
-            }
-            else {
+            } else {
                 adviceBox.innerHTML = "👍 아주 쾌적하고 에너지 효율적인 환경입니다!";
             }
         }
 
-        /* ==========================================
-           4. 온습도 분리 그래프 세팅 (Chart.js)
-           ========================================== */
-        // 온도 그래프 설정
+        // 차트 초기 세팅
         const ctxTemp = document.getElementById('tempChart').getContext('2d');
         const tempChart = new Chart(ctxTemp, {
             type: 'line',
@@ -260,7 +232,6 @@
             options: { maintainAspectRatio: false, animation: false, scales: { y: { suggestedMin: 20, suggestedMax: 30 } } }
         });
 
-        // 습도 그래프 설정
         const ctxHumi = document.getElementById('humiChart').getContext('2d');
         const humiChart = new Chart(ctxHumi, {
             type: 'line',
@@ -268,110 +239,10 @@
             options: { maintainAspectRatio: false, animation: false, scales: { y: { suggestedMin: 30, suggestedMax: 70 } } }
         });
 
-
-        // 📡 [관리자용] 블루투스 데이터를 서버로 전송 (POST)
-async function sendDataToServer(temp, humi) {
-    try {
-        await fetch(NGROK_URL + "/api/data", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ temp: temp, humi: humi })
-        });
-        console.log("서버 전송 성공!");
-    } catch (error) {
-        console.error("서버 전송 실패:", error);
-    }
-}
-        
-        /* ==========================================
-           5. 블루투스 연결 (기존 유지)
-           ========================================== */
-        const SERVICE_UUID = "19b10000-e8f2-537e-4f6c-d104768a1214";
-        const TEMP_CHAR_UUID = "19b10001-e8f2-537e-4f6c-d104768a1214";
-        const HUMI_CHAR_UUID = "19b10002-e8f2-537e-4f6c-d104768a1214";
-
-        let currentTemp = "--"; let currentHumi = "--";
-
-        document.getElementById('connectBtn').addEventListener('click', async () => {
-            try {
-                const device = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true, // 이름 필터를 없애고 주변의 모든 기기를 다 보여줌!
-                    optionalServices: [SERVICE_UUID]
-                });
-                const server = await device.gatt.connect();
-                const service = await server.getPrimaryService(SERVICE_UUID);
-
-                // 온도 받기
-                const tChar = await service.getCharacteristic(TEMP_CHAR_UUID);
-                await tChar.startNotifications();
-                tChar.addEventListener('characteristicvaluechanged', (e) => {
-                    currentTemp = e.target.value.getFloat32(0, true).toFixed(1);
-                    updateDashboard();
-                });
-
-                // 습도 받기
-                const hChar = await service.getCharacteristic(HUMI_CHAR_UUID);
-                await hChar.startNotifications();
-                hChar.addEventListener('characteristicvaluechanged', (e) => {
-                    currentHumi = e.target.value.getFloat32(0, true).toFixed(1);
-                    updateDashboard();
-                });
-
-                document.getElementById('connectBtn').style.display = 'none';
-            } catch (error) { alert("블루투스 연결 실패!"); }
-        });
-
-        // 10분 측정을 위한 타이머 변수
         let lastRecordedTime = 0; 
-        const TEN_MINUTES_MS = 10 * 60 * 1000; // 10분을 밀리초로 변환 (600,000ms)
+        const TEN_MINUTES_MS = 10 * 60 * 1000; 
 
-        // 화면 및 2개의 그래프 업데이트 함수
-        function updateDashboard() {
-            // 1. 화면의 큰 숫자 업데이트 (실시간 변경)
-            document.getElementById('tempVal').innerText = currentTemp;
-            document.getElementById('humiVal').innerText = currentHumi;
-            
-            // 조언 실행
-            if (currentTemp !== "--" && outTemp !== 0) {
-                generateAdvice(parseFloat(currentTemp));
-            }
-
-            // 2. ⭐ 10분에 한 번씩만 그래프에 점을 찍고 서버로 전송!
-            const nowTime = Date.now();
-            
-            // 프로그램이 처음 켜졌거나, 마지막 기록 후 10분이 지났다면 실행
-            if (lastRecordedTime === 0 || (nowTime - lastRecordedTime) >= TEN_MINUTES_MS) {
-                lastRecordedTime = nowTime; // 마지막 기록 시간 업데이트
-                
-                const now = new Date();
-                const timeStr = `${now.getHours()}시 ${now.getMinutes()}분`;
-                
-                // 서버로 데이터 쏘기
-                if (currentTemp !== "--" && currentHumi !== "--") {
-                    sendDataToServer(currentTemp, currentHumi);
-                }
-
-                // 온도 그래프 그리기
-                tempChart.data.labels.push(timeStr);
-                tempChart.data.datasets[0].data.push(currentTemp);
-                if(tempChart.data.labels.length > 144) { 
-                    tempChart.data.labels.shift(); 
-                    tempChart.data.datasets[0].data.shift(); 
-                }
-                tempChart.update();
-
-                // 습도 그래프 그리기
-                humiChart.data.labels.push(timeStr);
-                humiChart.data.datasets[0].data.push(currentHumi);
-                if(humiChart.data.labels.length > 144) { 
-                    humiChart.data.labels.shift(); 
-                    humiChart.data.datasets[0].data.shift(); 
-                }
-                humiChart.update();
-            }
-        } // updateDashboard 함수 끝!
-            
-        // [일반 사용자용] 서버에서 최신 데이터 가져오기 (GET)
+        // 📱 [일반 사용자용] 서버에서 최신 데이터 가져와서 화면에 뿌리기
         async function fetchLatestData() {
             try {
                 const response = await fetch(NGROK_URL + "/api/latest_data", {
@@ -384,21 +255,41 @@ async function sendDataToServer(temp, humi) {
                 
                 const data = await response.json();
                 
-                if (data.status === "success") {
-                    // 복잡한 함수 거치지 않고, 화면의 온도/습도 글씨만 즉시 교체!
+                // ⭐ 까다로운 조건 없애고, 데이터가 오면 무조건 화면 반영!
+                if (data.temp !== undefined && data.humi !== undefined) {
+                    
+                    // 1. 숫자 업데이트
                     document.getElementById('tempVal').innerText = data.temp;
                     document.getElementById('humiVal').innerText = data.humi;
                     
-                    // 연결 안내 문구도 원격 수신 상태로 변경
-                    document.querySelector('.connect-btn').innerText = "🌐 실시간 원격 데이터 수신 중";
+                    // 2. 조언 상자 업데이트
+                    if (outTemp !== 0) {
+                        generateAdvice(parseFloat(data.temp));
+                    }
+
+                    // 3. 10분마다 그래프 점 찍기
+                    const nowTime = Date.now();
+                    if (lastRecordedTime === 0 || (nowTime - lastRecordedTime) >= TEN_MINUTES_MS) {
+                        lastRecordedTime = nowTime;
+                        const now = new Date();
+                        const timeStr = `${now.getHours()}시 ${now.getMinutes()}분`;
+                        
+                        tempChart.data.labels.push(timeStr);
+                        tempChart.data.datasets[0].data.push(data.temp);
+                        if(tempChart.data.labels.length > 144) { tempChart.data.labels.shift(); tempChart.data.datasets[0].data.shift(); }
+                        tempChart.update();
+
+                        humiChart.data.labels.push(timeStr);
+                        humiChart.data.datasets[0].data.push(data.humi);
+                        if(humiChart.data.labels.length > 144) { humiChart.data.labels.shift(); humiChart.data.datasets[0].data.shift(); }
+                        humiChart.update();
+                    }
                 }
             } catch (error) {
-                console.log("데이터 수신 대기 중...");
+                console.log("서버 통신 대기 중...");
             }
         }
-        
-        setInterval(fetchLatestData, 5000); // 원격 모드 작동 시 주석 해제
 
-    </script>
-</body>
-</html>
+        // 웹페이지 열리자마자 바로 1번 가져오고, 이후 5초마다 반복
+        fetchLatestData();
+        setInterval(fetchLatestData, 5000);
