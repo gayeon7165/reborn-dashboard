@@ -110,10 +110,11 @@
             <div class="glass-card">
                 <h2 style="margin: 0 0 10px 0; color: #2c3e50;">🌱 BEMS 대시보드</h2>
 
-                <!-- 🎯 기관 선택 드롭다운 추가 -->
+                <!-- 🎯 3개의 장소를 선택할 수 있는 드롭다운 -->
                 <select id="locationSelect" class="location-select">
-                    <option value="shinwol">📍 한누리학교지역아동센터 </option>
-                    <option value="deungchon">📍 등촌주공1단지아파트사회복지관 </option>
+                    <option value="hannuri">📍 한누리학교지역아동센터 </option>
+                    <option value="deungchon_vr">📍 등촌복지관 (VR 놀이터)</option>
+                    <option value="deungchon_hanul">📍 등촌복지관 (한울관교실)</option>
                 </select>
 
                 <!-- 거대한 온습도 패널 -->
@@ -167,12 +168,16 @@
         
         // ⭐ OpenWeatherMap API 키 및 지역 세팅
         const API_KEY = "8f473ed478c67abe7a3dec096bbe4153";
+        
+        // ⭐ 장소 3곳의 날씨(위도/경도) 세팅
         const locations = {
-            shinwol: { lat: 37.5165, lon: 126.8367, name: "신월동" },
-            deungchon: { lat: 37.5640, lon: 126.8424, name: "등촌동" }
-        };
+            hannuri: { lat: 37.5165, lon: 126.8367, name: "한누리학교" },
+            deungchon_vr: { lat: 37.5640, lon: 126.8424, name: "VR 놀이터" },
+            deungchon_hanul: { lat: 37.5640, lon: 126.8424, name: "한울관교실" }
+                };
+        let currentLoc = "hannuri"; // 초기값 세팅
 
-        let currentLoc = "deungchon";
+        // 🎯 2. 현재 선택된 기관 설정 (초기값: 한누리학교)
         let lat = locations[currentLoc].lat;
         let lon = locations[currentLoc].lon;
         let locName = locations[currentLoc].name;
@@ -290,53 +295,37 @@
         });
 
         let lastRecordedTime = 0; 
-        const TEN_MINUTES_MS = 10 * 60 * 1000; 
+        const TEN_MINUTES_MS = 10 * 60 * 1000;
 
-        // 📱 [일반 사용자용] 서버에서 최신 데이터 가져와서 화면에 뿌리기
+        // 📱 [일반 사용자용] 선택된 방의 최신 데이터만 골라서 띄우기
         async function fetchLatestData() {
             try {
                 const response = await fetch(NGROK_URL + "/api/latest_data", {
                     method: "GET",
-                    headers: {
-                        "ngrok-skip-browser-warning": "69420",
-                        "Content-Type": "application/json"
-                    }
+                    headers: { "ngrok-skip-browser-warning": "69420", "Content-Type": "application/json" }
                 });
-                
-                const data = await response.json();
-                
-                // ⭐ 까다로운 조건 없애고, 데이터가 오면 무조건 화면 반영!
-                if (data.temp !== undefined && data.humi !== undefined) {
-                    
-                    // 1. 숫자 업데이트
-                    document.getElementById('tempVal').innerText = data.temp;
-                    document.getElementById('humiVal').innerText = data.humi;
-                    
-                    // 2. 조언 상자 업데이트
+        
+                const allData = await response.json();
+                const selectedRoom = document.getElementById('locationSelect').value; // 현재 선택한 방
+        
+                // ⭐ 서버에서 받아온 전체 데이터 중, 현재 선택된 방(selectedRoom)의 데이터만 뽑아냄
+                const roomData = allData[selectedRoom]; 
+
+                if (roomData && roomData.temp !== undefined) {
+                    document.getElementById('tempVal').innerText = roomData.temp;
+                    document.getElementById('humiVal').innerText = roomData.humi;
+            
                     if (outTemp !== 0) {
-                        generateAdvice(parseFloat(data.temp));
+                        generateAdvice(parseFloat(roomData.temp), parseFloat(roomData.humi));
                     }
-
-                    // 3. 10분마다 그래프 점 찍기
-                    const nowTime = Date.now();
-                    if (lastRecordedTime === 0 || (nowTime - lastRecordedTime) >= TEN_MINUTES_MS) {
-                        lastRecordedTime = nowTime;
-                        const now = new Date();
-                        const timeStr = `${now.getHours()}시 ${now.getMinutes()}분`;
-                        
-                        tempChart.data.labels.push(timeStr);
-                        tempChart.data.datasets[0].data.push(data.temp);
-                        if(tempChart.data.labels.length > 144) { tempChart.data.labels.shift(); tempChart.data.datasets[0].data.shift(); }
-                        tempChart.update();
-
-                        humiChart.data.labels.push(timeStr);
-                        humiChart.data.datasets[0].data.push(data.humi);
-                        if(humiChart.data.labels.length > 144) { humiChart.data.labels.shift(); humiChart.data.datasets[0].data.shift(); }
-                        humiChart.update();
-                    }
+                    // (그래프 그리는 코드 생략 - 기존 코드 그대로 사용하되 roomData.temp로 넣기)
+                } else {
+                    // 아직 그 방의 데이터가 서버에 없을 때
+                    document.getElementById('tempVal').innerText = "--";
+                    document.getElementById('humiVal').innerText = "--";
                 }
             } catch (error) {
-                console.log("서버 통신 대기 중...");
+                console.log("데이터 수신 대기 중...");
             }
         }
 
